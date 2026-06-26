@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Liberty to Justice — Harvey Lewis: 250 Miles for Immigrant Rights</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --gold:        #D4A017;
+      --gold-light:  #F5C842;
+      --amber:       #FF9800;
+      --dark:        #080812;
+      --dark-glass:  rgba(8, 8, 22, 0.90);
+      --border:      rgba(212, 160, 23, 0.22);
+      --text:        #EFE6CC;
+      --text-muted:  #7A6840;
+      --red:         #E53935;
+    }
+
+    html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Georgia', Georgia, serif; background: var(--dark); color: var(--text); }
+
+    /* ── MAP ─────────────────────────────────────────────── */
+    #map { position: absolute; inset: 0; }
+
+    /* ── LOADING ─────────────────────────────────────────── */
+    #loading {
+      position: absolute; inset: 0; z-index: 200;
+      background: var(--dark);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      transition: opacity 0.6s ease;
+    }
+    #loading.fade { opacity: 0; pointer-events: none; }
+    .load-icon { font-size: 2.4rem; animation: run-in-place 0.55s ease-in-out infinite; display: inline-block; }
+    @keyframes run-in-place {
+      0%   { transform: translateY(0px)  rotate(-3deg) scaleY(1); }
+      20%  { transform: translateY(-7px) rotate(2deg)  scaleY(1.04); }
+      40%  { transform: translateY(-3px) rotate(-2deg) scaleY(0.97); }
+      60%  { transform: translateY(-9px) rotate(3deg)  scaleY(1.05); }
+      80%  { transform: translateY(-2px) rotate(-1deg) scaleY(0.98); }
+      100% { transform: translateY(0px)  rotate(-3deg) scaleY(1); }
+    }
+    .load-title { font-size: 1.4rem; color: var(--gold-light); letter-spacing: 0.06em; }
+    .load-sub { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; }
+    .load-bar { width: 180px; height: 2px; background: rgba(212,160,23,0.18); border-radius: 1px; overflow: hidden; }
+    .load-fill { height: 100%; background: var(--gold); border-radius: 1px; animation: loadpulse 1.8s ease-in-out infinite; }
+    @keyframes loadpulse { 0%{width:0;margin-left:0} 50%{width:100%;margin-left:0} 100%{width:0;margin-left:100%} }
+
+    /* ── SIDEBAR ─────────────────────────────────────────── */
+    #sidebar {
+      position: absolute; top: 0; left: 0; bottom: 0; width: 300px;
+      background: var(--dark-glass);
+      backdrop-filter: blur(14px) saturate(1.4);
+      -webkit-backdrop-filter: blur(14px) saturate(1.4);
+      border-right: 1px solid var(--border);
+      z-index: 20; display: flex; flex-direction: column;
+      transform: translateX(0); transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+    }
+    #sidebar.hidden { transform: translateX(-100%); }
+
+    .sb-brand {
+      padding: 22px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sb-eyebrow { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.18em; color: var(--gold); margin-bottom: 6px; }
+    .sb-title { font-size: 1.35rem; line-height: 1.25; color: var(--gold-light); }
+    .sb-runner { font-size: 0.78rem; color: var(--text-muted); margin-top: 5px; line-height: 1.45; }
+
+    .sb-stats {
+      display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .stat { flex: 1; padding: 10px 0; text-align: center; border-right: 1px solid var(--border); }
+    .stat:last-child { border-right: none; }
+    .stat-val { font-size: 1.25rem; font-weight: bold; color: var(--gold); }
+    .stat-lbl { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-top: 2px; }
+
+    .sb-stops { flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 16px; }
+    .sb-stops::-webkit-scrollbar { width: 4px; }
+    .sb-stops::-webkit-scrollbar-track { background: transparent; }
+    .sb-stops::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .stop-row {
+      display: flex; align-items: flex-start; gap: 0;
+      padding: 10px 16px 10px 14px;
+      cursor: pointer; border-left: 3px solid transparent;
+      transition: background 0.18s, border-color 0.18s;
+    }
+    .stop-row:hover { background: rgba(212,160,23,0.07); border-left-color: var(--gold); }
+    .stop-row.active { background: rgba(212,160,23,0.10); border-left-color: var(--gold-light); }
+
+    .stop-col { display: flex; flex-direction: column; align-items: center; margin-right: 12px; padding-top: 2px; }
+    .stop-pip {
+      width: 11px; height: 11px; border-radius: 50%; border: 2px solid;
+      flex-shrink: 0; box-shadow: 0 0 6px currentColor;
+    }
+    .pip-connector { width: 2px; flex: 1; min-height: 22px; margin: 3px 0; background: var(--border); }
+
+    .stop-info { flex: 1; min-width: 0; }
+    .stop-day { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+    .stop-name { font-size: 0.84rem; color: var(--text); line-height: 1.3; }
+    .stop-date { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+    .stop-addr { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+    .stop-miles { font-size: 0.62rem; margin-top: 3px; opacity: 0.7; }
+
+    .sb-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 0.65rem; color: var(--text-muted); line-height: 1.5;
+      flex-shrink: 0;
+    }
+    .sb-footer a { color: var(--gold); text-decoration: none; }
+
+    /* ── TOGGLE ──────────────────────────────────────────── */
+    #sb-toggle {
+      position: absolute; top: 50%; left: 300px; transform: translateY(-50%);
+      z-index: 30; background: var(--dark-glass); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-left: none;
+      color: var(--gold); cursor: pointer;
+      width: 20px; height: 52px; border-radius: 0 6px 6px 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; transition: left 0.32s cubic-bezier(0.4,0,0.2,1), background 0.2s;
+    }
+    #sb-toggle:hover { background: rgba(212,160,23,0.12); }
+    #sb-toggle.sb-hidden { left: 0; border-radius: 0 6px 6px 0; }
+
+    /* ── TOP BAR ─────────────────────────────────────────── */
+    #topbar {
+      position: absolute; top: 0; left: 300px; right: 0; z-index: 15;
+      padding: 14px 16px 36px;
+      background: linear-gradient(to bottom, rgba(8,8,18,0.88) 0%, transparent 100%);
+      pointer-events: none; transition: left 0.32s cubic-bezier(0.4,0,0.2,1);
+    }
+    #topbar.sb-hidden { left: 0; }
+    .topbar-title { font-size: 1.1rem; color: var(--gold-light); text-shadow: 0 0 24px rgba(212,160,23,0.45); letter-spacing: 0.04em; }
+    .topbar-sub { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; margin-top: 3px; }
+
+    /* ── CONTROLS ────────────────────────────────────────── */
+    #controls {
+      position: absolute; bottom: 36px; right: 16px; z-index: 20;
+      display: flex; flex-direction: column; gap: 7px; align-items: flex-end;
+    }
+    .ctl-btn {
+      background: var(--dark-glass); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); color: var(--gold);
+      padding: 7px 13px; border-radius: 6px; cursor: pointer;
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+      font-family: inherit; white-space: nowrap;
+      transition: background 0.18s, border-color 0.18s, color 0.18s;
+    }
+    .ctl-btn:hover { background: rgba(212,160,23,0.12); border-color: var(--gold); }
+    .ctl-btn.on { background: rgba(212,160,23,0.18); border-color: var(--gold-light); color: var(--gold-light); }
+
+    /* ── LEGEND ──────────────────────────────────────────── */
+    #legend {
+      position: absolute; bottom: 36px; left: 316px; z-index: 20;
+      background: var(--dark-glass); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; transition: left 0.32s cubic-bezier(0.4,0,0.2,1);
+    }
+    #legend.sb-hidden { left: 16px; }
+    .legend-title { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); margin-bottom: 7px; }
+    .legend-item { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: 0.68rem; color: var(--text-muted); }
+    .legend-line { width: 24px; height: 3px; border-radius: 2px; }
+
+    /* ── TRACKER STATUS ──────────────────────────────────── */
+    #tracker {
+      position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 20;
+      background: var(--dark-glass); backdrop-filter: blur(10px);
+      border: 1px solid rgba(229,57,53,0.3); border-radius: 20px;
+      padding: 7px 13px; display: flex; align-items: center; gap: 8px;
+      font-size: 0.68rem; color: var(--text-muted);
+    }
+    .tracker-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+    .tracker-dot.live { animation: blink 1.4s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(229,57,53,0.6)} 50%{opacity:0.6;box-shadow:0 0 0 5px rgba(229,57,53,0)} }
+
+    /* ── POPUP ───────────────────────────────────────────── */
+    .mapboxgl-popup-content {
+      background: rgba(8,8,22,0.96) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 8px !important;
+      padding: 14px 16px !important;
+      color: var(--text) !important;
+      min-width: 190px; max-width: 240px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+    }
+    .mapboxgl-popup-tip { display: none !important; }
+    .mapboxgl-popup-close-button { color: var(--text-muted) !important; font-size: 14px !important; top: 8px !important; right: 10px !important; }
+    .pu-day { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 4px; }
+    .pu-name { font-size: 0.95rem; font-weight: bold; color: var(--gold-light); line-height: 1.3; margin-bottom: 4px; }
+    .pu-date { font-size: 0.68rem; color: var(--text-muted); margin-bottom: 6px; }
+    .pu-addr { font-size: 0.67rem; color: var(--text-muted); line-height: 1.5; }
+    .pu-note { font-size: 0.67rem; color: var(--text-muted); margin-top: 8px; line-height: 1.5; border-top: 1px solid var(--border); padding-top: 8px; }
+
+    /* ── CUSTOM MARKER ELEMENTS ──────────────────────────── */
+    .mk-wrap { cursor: pointer; }
+    .mk-dot {
+      border-radius: 50%; border: 2px solid rgba(255,255,255,0.85);
+      transition: transform 0.2s; will-change: transform;
+    }
+    .mk-wrap:hover .mk-dot { transform: scale(1.5); }
+    .mk-ring {
+      position: absolute; top: 50%; left: 50%;
+      border-radius: 50%; border: 1px solid;
+      animation: mkring 2.4s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes mkring {
+      0% { transform: translate(-50%,-50%) scale(1); opacity: 0.7; }
+      100% { transform: translate(-50%,-50%) scale(2.8); opacity: 0; }
+    }
+
+    /* runner tracker marker */
+    .runner-marker {
+      position: relative; width: 26px; height: 26px;
+    }
+    .runner-core {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 13px; height: 13px; border-radius: 50%;
+      background: #FF6B35; border: 2px solid white;
+      box-shadow: 0 0 12px #FF6B35, 0 0 4px #FF6B35;
+      z-index: 2;
+    }
+    .runner-pulse {
+      position: absolute; top: 50%; left: 50%;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,107,53,0.35);
+      animation: runpulse 1.6s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes runpulse {
+      0% { transform: translate(-50%,-50%) scale(0.4); opacity: 1; }
+      100% { transform: translate(-50%,-50%) scale(2.2); opacity: 0; }
+    }
+
+    /* ── MAPBOX OVERRIDES ────────────────────────────────── */
+    .mapboxgl-ctrl-group { background: var(--dark-glass) !important; border: 1px solid var(--border) !important; }
+    .mapboxgl-ctrl-group button { color: var(--gold) !important; }
+    .mapboxgl-ctrl-attrib { background: rgba(8,8,22,0.7) !important; }
+    .mapboxgl-ctrl-attrib a { color: var(--text-muted) !important; }
+
+    /* ── MOBILE ──────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      #sidebar {
+        width: 100%; height: 42%; top: auto; bottom: 0;
+        left: 0; right: 0; border-right: none;
+        border-top: 1px solid var(--border);
+        transform: translateY(0);
+      }
+      #sidebar.hidden { transform: translateY(100%); }
+
+      #sb-toggle {
+        left: 50%; top: auto; bottom: 42%; transform: translateX(-50%);
+        width: 54px; height: 20px; border-radius: 6px 6px 0 0;
+        border-left: 1px solid var(--border); border-bottom: none;
+        writing-mode: horizontal-tb;
+      }
+      #sb-toggle.sb-hidden { bottom: 0; left: 50%; transform: translateX(-50%); }
+
+      #topbar { left: 0; display: none; }
+      #legend { left: 16px; bottom: auto; top: 56px; }
+      #legend.sb-hidden { left: 16px; }
+      #controls { bottom: auto; top: 56px; right: 16px; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+      #tracker { top: auto; bottom: 46%; left: 50%; transform: translateX(-50%); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loading">
+  <div class="load-icon">🏃</div>
+  <div class="load-title">Liberty to Justice</div>
+  <div class="load-sub">Charting the journey…</div>
+  <div class="load-bar"><div class="load-fill"></div></div>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Top bar (shown when sidebar is hidden on desktop) -->
+<div id="topbar">
+  <div class="topbar-title">Liberty to Justice</div>
+  <div class="topbar-sub">Harvey Lewis · 250 mi · June 30 – July 4, 2026</div>
+</div>
+
+<!-- Sidebar toggle -->
+<button id="sb-toggle" title="Toggle sidebar" onclick="toggleSidebar()">◀</button>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-eyebrow">June 30 – July 4, 2026</div>
+    <div class="sb-title">Liberty to Justice</div>
+    <div class="sb-runner">Harvey Lewis · Ultra-distance runner · Running 250 miles to stand with immigrants and honor Dr. King's legacy of justice for all.</div>
+  </div>
+
+  <div class="sb-stats">
+    <div class="stat"><div class="stat-val">250</div><div class="stat-lbl">Miles</div></div>
+    <div class="stat"><div class="stat-val">5</div><div class="stat-lbl">Days</div></div>
+    <div class="stat"><div class="stat-val">~50</div><div class="stat-lbl">Mi / Day</div></div>
+  </div>
+
+  <div class="sb-stops" id="sb-stops"><!-- filled by JS --></div>
+
+  <div class="sb-footer">
+    From <strong style="color:var(--text)">Liberty State Park, NJ</strong> to the
+    <strong style="color:var(--text)">MLK National Memorial, DC</strong> —
+    arriving Independence Day, July 4.
+  </div>
+</div>
+
+<!-- Live tracker badge -->
+<div id="tracker">
+  <div class="tracker-dot" id="tracker-dot"></div>
+  <span id="tracker-label">Live tracking begins June 30</span>
+</div>
+
+<!-- Map controls -->
+<div id="controls">
+  <button class="ctl-btn" id="btn-3d" onclick="toggle3D()">3D</button>
+  <button class="ctl-btn" id="btn-fly" onclick="flyRoute()">Fly Route</button>
+  <button class="ctl-btn" onclick="resetView()">Overview</button>
+</div>
+
+<!-- Legend -->
+<div id="legend">
+  <div class="legend-title">Daily Segments</div>
+  <!-- filled by JS -->
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// CONFIG
+// Paste your Mapbox public token here, or add ?token=pk.xxx to URL
+// ════════════════════════════════════════════════════════════════
+const TOKEN_FROM_URL = new URLSearchParams(location.search).get('token');
+mapboxgl.accessToken = TOKEN_FROM_URL || 'pk.eyJ1IjoibWF0dGhld2dhcnJvZCIsImEiOiJjbXF2NzlnZnExMm5oMnNvcTR2MzB4aDNnIn0.2GU4lgODdre8ruaXJCSycw';
+
+// ════════════════════════════════════════════════════════════════
+// STOPS DATA
+// ════════════════════════════════════════════════════════════════
+const COLORS = ['#4CAF50', '#8DC63F', '#F5C842', '#FF9800', '#E53935'];
+
+const STOPS = [
+  {
+    id: 'start',
+    name: 'Liberty State Park',
+    short: 'Liberty Park, NJ',
+    coords: [-74.0398, 40.6989],
+    day: 'Start',
+    date: 'June 30, 2026',
+    address: 'Liberty State Park\nJersey City, NJ 07305',
+    note: 'The run begins at the foot of the Statue of Liberty — an enduring symbol of freedom and refuge for all who seek it.',
+    isStart: true,
+    color: COLORS[0]
+  },
+  {
+    id: 'day1',
+    name: 'DoubleTree by Hilton',
+    short: 'Princeton, NJ',
+    coords: [-74.6643, 40.3490],
+    day: 'Day 1',
+    date: 'June 30, 2026',
+    address: '4355 US Highway 1 at Ridge Rd\nPrinceton, NJ 08540',
+    miles: '~50 miles',
+    color: COLORS[0]
+  },
+  {
+    id: 'day2',
+    name: 'Holiday Inn Philadelphia Airport',
+    short: 'Philadelphia, PA',
+    coords: [-75.1840, 39.9125],
+    day: 'Day 2',
+    date: 'July 1, 2026',
+    address: '2033 Penrose Ave\nPhiladelphia, PA 19145',
+    miles: '~50 miles',
+    color: COLORS[1]
+  },
+  {
+    id: 'day3',
+    name: 'Comfort Inn & Suites',
+    short: 'Newark, DE',
+    coords: [-75.6799, 39.6729],
+    day: 'Day 3',
+    date: 'July 2, 2026',
+    address: '3 Concord Ln\nNewark, DE 19713',
+    miles: '~50 miles',
+    color: COLORS[2]
+  },
+  {
+    id: 'day4',
+    name: 'Hampton Inn & Suites',
+    short: 'Baltimore, MD',
+    coords: [-76.6126, 39.2887],
+    day: 'Day 4',
+    date: 'July 3, 2026',
+    address: '131 E Redwood St\nBaltimore, MD 21202',
+    miles: '~50 miles',
+    color: COLORS[3]
+  },
+  {
+    id: 'finish',
+    name: 'MLK National Memorial',
+    short: 'Washington, DC',
+    coords: [-77.0443, 38.8863],
+    day: 'Day 5 — Finish',
+    date: 'July 4, 2026',
+    address: 'Martin Luther King Jr.\nNational Memorial\nWashington, DC',
+    miles: '~50 miles',
+    note: 'Harvey arrives at the MLK Memorial on Independence Day — a fitting tribute to Dr. King\'s vision of justice and equality for everyone.',
+    isFinish: true,
+    color: COLORS[4]
+  }
+];
+
+// Intermediate waypoints to guide the Directions API along correct road corridors
+// Each entry: [segmentIndex, [ [lng,lat], ... ]] — these sit BETWEEN start and end of each day
+const INTERMEDIATES = [
+  // Day 1: Liberty Park → Princeton via Elizabeth, Edison corridor
+  [0, [[-74.2119, 40.6640], [-74.2848, 40.5576], [-74.4518, 40.4862]]],
+  // Day 2: Princeton → Philadelphia via Trenton, crossing DE River
+  [1, [[-74.7429, 40.2171], [-74.8617, 40.0987], [-75.0600, 40.0200]]],
+  // Day 3: Philadelphia → Newark DE via Chester PA, Wilmington DE
+  [2, [[-75.3570, 39.8495], [-75.5398, 39.7447]]],
+  // Day 4: Newark DE → Baltimore via Elkton MD, Aberdeen MD
+  [3, [[-75.8330, 39.6065], [-76.1647, 39.5095], [-76.3500, 39.4200]]],
+  // Day 5: Baltimore → DC via Laurel MD, College Park MD
+  [4, [[-76.7500, 39.1500], [-76.9269, 38.9807]]]
+];
+
+// ════════════════════════════════════════════════════════════════
+// MAP INIT
+// ════════════════════════════════════════════════════════════════
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/dark-v11',
+  center: [-75.85, 39.85],
+  zoom: 6.6,
+  pitch: 28,
+  bearing: -4,
+  antialias: true
+});
+
+map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-right');
+map.addControl(new mapboxgl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-right');
+
+let is3D = false;
+let runnerMarker = null;
+let sidebarOpen = true;
+let flyingTimeout = null;
+
+// ════════════════════════════════════════════════════════════════
+// ROUTE FETCHING
+// ════════════════════════════════════════════════════════════════
+async function fetchSegment(fromStop, toStop, extras = []) {
+  const coords = [fromStop.coords, ...extras, toStop.coords]
+    .map(c => c.join(',')).join(';');
+  const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coords}` +
+    `?alternatives=false&geometries=geojson&overview=full&steps=false` +
+    `&access_token=${mapboxgl.accessToken}`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.routes && d.routes[0]) return d.routes[0].geometry.coordinates;
+  } catch (e) { /* fall through */ }
+  // Fallback: interpolate via intermediate points
+  const pts = [fromStop.coords, ...extras, toStop.coords];
+  return interpolateLine(pts, 40);
+}
+
+function interpolateLine(pts, steps) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      out.push([ax + (bx - ax) * t, ay + (by - ay) * t]);
+    }
+  }
+  return out;
+}
+
+// ════════════════════════════════════════════════════════════════
+// MAP READY
+// ════════════════════════════════════════════════════════════════
+map.on('load', async () => {
+
+  // ── Atmosphere + terrain ──────────────────────────────────────
+  map.addSource('dem', {
+    type: 'raster-dem',
+    url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+    tileSize: 512, maxzoom: 14
+  });
+  map.setTerrain({ source: 'dem', exaggeration: 1.4 });
+
+  map.setFog({
+    range: [1, 12],
+    color: '#0c0c1e',
+    'high-color': '#13132a',
+    'space-color': '#060610',
+    'horizon-blend': 0.08,
+    'star-intensity': 0.92
+  });
+
+  // ── 3D buildings ─────────────────────────────────────────────
+  map.addLayer({
+    id: '3d-buildings',
+    source: 'composite',
+    'source-layer': 'building',
+    filter: ['==', 'extrude', 'true'],
+    type: 'fill-extrusion',
+    minzoom: 12,
+    paint: {
+      'fill-extrusion-color': '#121228',
+      'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 12, 0, 13, ['get', 'height']],
+      'fill-extrusion-base': ['get', 'min_height'],
+      'fill-extrusion-opacity': 0.72
+    }
+  });
+
+  // ── Fetch all segments (parallel) ────────────────────────────
+  const intermediateMap = Object.fromEntries(INTERMEDIATES);
+  const segFetches = STOPS.slice(0, -1).map((stop, i) =>
+    fetchSegment(stop, STOPS[i + 1], intermediateMap[i] || [])
+  );
+  const segments = await Promise.all(segFetches);
+
+  // ── Add route layers ──────────────────────────────────────────
+  segments.forEach((coords, i) => {
+    const src = `route-src-${i}`;
+    const color = COLORS[i];
+
+    map.addSource(src, {
+      type: 'geojson',
+      data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }
+    });
+
+    // Soft glow
+    map.addLayer({
+      id: `route-glow-${i}`, type: 'line', source: src,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': color, 'line-width': 12, 'line-opacity': 0, 'line-blur': 5 }
+    });
+
+    // Main line
+    map.addLayer({
+      id: `route-line-${i}`, type: 'line', source: src,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': color, 'line-width': 2.8, 'line-opacity': 0 }
+    });
+
+    // Animate in with stagger
+    setTimeout(() => {
+      map.setPaintProperty(`route-line-${i}`, 'line-opacity', 0.92);
+      map.setPaintProperty(`route-glow-${i}`, 'line-opacity', 0.18);
+    }, 300 + i * 280);
+  });
+
+  // ── Stop markers as terrain-draped circle layers ─────────────
+  map.addSource('stops-src', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: STOPS.map(s => ({
+        type: 'Feature',
+        properties: {
+          id: s.id, name: s.name, day: s.day, date: s.date,
+          address: s.address.replace(/\n/g, '<br>'),
+          note: s.note || '', miles: s.miles || '',
+          color: s.color, special: (s.isStart || s.isFinish) ? 1 : 0
+        },
+        geometry: { type: 'Point', coordinates: s.coords }
+      }))
+    }
+  });
+
+  // Pulsing outer ring for start + finish
+  map.addLayer({
+    id: 'stops-ring',
+    type: 'circle',
+    source: 'stops-src',
+    filter: ['==', ['get', 'special'], 1],
+    paint: {
+      'circle-radius': 14,
+      'circle-color': ['get', 'color'],
+      'circle-opacity': 0.25,
+      'circle-stroke-width': 1,
+      'circle-stroke-color': ['get', 'color'],
+      'circle-stroke-opacity': 0.5
+    }
+  });
+
+  // Main dots
+  map.addLayer({
+    id: 'stops-dots',
+    type: 'circle',
+    source: 'stops-src',
+    paint: {
+      'circle-radius': ['case', ['==', ['get', 'special'], 1], 8, 5],
+      'circle-color': ['get', 'color'],
+      'circle-stroke-color': 'white',
+      'circle-stroke-width': 2,
+      'circle-pitch-alignment': 'map'
+    }
+  });
+
+  // Cursor
+  map.on('mouseenter', 'stops-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'stops-dots', () => { map.getCanvas().style.cursor = ''; });
+
+  // Popups on click
+  map.on('click', 'stops-dots', e => {
+    const p = e.features[0].properties;
+    new mapboxgl.Popup({ offset: 12, closeButton: true })
+      .setLngLat(e.features[0].geometry.coordinates)
+      .setHTML(`
+        <div class="pu-day" style="color:${p.color}">${p.day}${p.miles ? ' &middot; ' + p.miles : ''}</div>
+        <div class="pu-name">${p.name}</div>
+        <div class="pu-date">${p.date}</div>
+        <div class="pu-addr">${p.address}</div>
+        ${p.note ? `<div class="pu-note">${p.note}</div>` : ''}
+      `)
+      .addTo(map);
+  });
+
+  // Animate ring radius/opacity
+  let ringStart = null;
+  function animateRing(ts) {
+    if (!ringStart) ringStart = ts;
+    const t = ((ts - ringStart) / 2000) % 1;
+    map.setPaintProperty('stops-ring', 'circle-radius', 8 + t * 16);
+    map.setPaintProperty('stops-ring', 'circle-opacity', 0.35 * (1 - t));
+    requestAnimationFrame(animateRing);
+  }
+  requestAnimationFrame(animateRing);
+
+  // ── Runner tracker marker (hidden until live data) ────────────
+  const runEl = document.createElement('div');
+  runEl.className = 'runner-marker';
+  runEl.innerHTML = `<div class="runner-core"></div><div class="runner-pulse"></div>`;
+  runEl.style.display = 'none';
+  runEl.id = 'runner-el';
+
+  runnerMarker = new mapboxgl.Marker({ element: runEl, anchor: 'center' })
+    .setLngLat(STOPS[0].coords)
+    .addTo(map);
+
+  // ── Populate sidebar + legend ─────────────────────────────────
+  buildSidebar();
+  buildLegend();
+
+  // ── Dismiss loading ───────────────────────────────────────────
+  setTimeout(() => {
+    document.getElementById('loading').classList.add('fade');
+    setTimeout(() => document.getElementById('loading').remove(), 700);
+  }, 600);
+});
+
+// ════════════════════════════════════════════════════════════════
+// SIDEBAR BUILD
+// ════════════════════════════════════════════════════════════════
+function buildSidebar() {
+  const el = document.getElementById('sb-stops');
+  el.innerHTML = '';
+
+  STOPS.forEach((stop, i) => {
+    const row = document.createElement('div');
+    row.className = 'stop-row';
+    row.dataset.idx = i;
+
+    const connector = i < STOPS.length - 1
+      ? `<div class="pip-connector" style="background:linear-gradient(to bottom,${stop.color},${STOPS[i+1]?.color || stop.color})"></div>`
+      : '';
+
+    row.innerHTML = `
+      <div class="stop-col">
+        <div class="stop-pip" style="color:${stop.color};background:${stop.color}22;border-color:${stop.color}"></div>
+        ${connector}
+      </div>
+      <div class="stop-info">
+        <div class="stop-day" style="color:${stop.color}">${stop.day}${stop.miles ? ' &middot; ' + stop.miles : ''}</div>
+        <div class="stop-name">${stop.short}</div>
+        <div class="stop-date">${stop.date}</div>
+        <div class="stop-addr">${stop.address.replace(/\n/g, ', ')}</div>
+      </div>
+    `;
+
+    row.addEventListener('click', () => {
+      document.querySelectorAll('.stop-row').forEach(r => r.classList.remove('active'));
+      row.classList.add('active');
+      map.flyTo({ center: stop.coords, zoom: 13, pitch: 55, bearing: 0, duration: 2200 });
+    });
+
+    el.appendChild(row);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// LEGEND BUILD
+// ════════════════════════════════════════════════════════════════
+function buildLegend() {
+  const el = document.getElementById('legend');
+  const labels = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'];
+  let html = '<div class="legend-title">Daily Segments</div>';
+  COLORS.forEach((c, i) => {
+    html += `<div class="legend-item"><div class="legend-line" style="background:${c}"></div>${labels[i]}</div>`;
+  });
+  el.innerHTML += html;
+}
+
+// ════════════════════════════════════════════════════════════════
+// CONTROLS
+// ════════════════════════════════════════════════════════════════
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  const sb = document.getElementById('sidebar');
+  const tog = document.getElementById('sb-toggle');
+  const tb = document.getElementById('topbar');
+  const leg = document.getElementById('legend');
+  if (!sidebarOpen) {
+    sb.classList.add('hidden');
+    tog.classList.add('sb-hidden');
+    tb.classList.add('sb-hidden');
+    leg.classList.add('sb-hidden');
+    tog.textContent = '▶';
+  } else {
+    sb.classList.remove('hidden');
+    tog.classList.remove('sb-hidden');
+    tb.classList.remove('sb-hidden');
+    leg.classList.remove('sb-hidden');
+    tog.textContent = '◀';
+  }
+}
+
+function toggle3D() {
+  is3D = !is3D;
+  const btn = document.getElementById('btn-3d');
+  map.easeTo({ pitch: is3D ? 62 : 28, duration: 900 });
+  btn.classList.toggle('on', is3D);
+}
+
+function resetView() {
+  map.flyTo({ center: [-75.85, 39.85], zoom: 6.6, pitch: 28, bearing: -4, duration: 1800 });
+}
+
+function flyRoute() {
+  const btn = document.getElementById('btn-fly');
+  if (flyingTimeout) { clearTimeout(flyingTimeout); flyingTimeout = null; btn.classList.remove('on'); btn.textContent = 'Fly Route'; return; }
+  btn.classList.add('on');
+  btn.textContent = 'Stop';
+  let i = 0;
+  function next() {
+    if (i >= STOPS.length) {
+      btn.classList.remove('on');
+      btn.textContent = 'Fly Route';
+      flyingTimeout = null;
+      resetView();
+      return;
+    }
+    map.flyTo({ center: STOPS[i].coords, zoom: 12.5, pitch: 60, bearing: i * 25, duration: 3200, essential: true });
+    i++;
+    flyingTimeout = setTimeout(next, 4200);
+  }
+  next();
+}
+
+// ════════════════════════════════════════════════════════════════
+// LIVE TRACKING PUBLIC API
+//
+// Call window.updateRunner(lat, lng, label) from your tracking
+// system to move the runner dot in real time.
+// Example: updateRunner(39.95, -75.18, 'Harvey at mile 47')
+// ════════════════════════════════════════════════════════════════
+window.updateRunner = function(lat, lng, label) {
+  if (!runnerMarker) return;
+  runnerMarker.setLngLat([lng, lat]);
+  document.getElementById('runner-el').style.display = 'block';
+  document.getElementById('tracker-dot').classList.add('live');
+  document.getElementById('tracker-label').textContent = label || 'Harvey is running!';
+  map.panTo([lng, lat], { duration: 1000 });
+};
+
+// ════════════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ════════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') resetView();
+  if (e.key === '3') toggle3D();
+  if (e.key === 'f') flyRoute();
+  if (e.key === 's') toggleSidebar();
+});
+</script>
+</body>
+</html>
