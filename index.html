@@ -6,6 +6,7 @@
   <title>Liberty to Justice — Harvey Lewis: 250 Miles for Immigrant Rights</title>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet" />
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+  <script src="route.js"></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -34,14 +35,10 @@
       transition: opacity 0.6s ease;
     }
     #loading.fade { opacity: 0; pointer-events: none; }
-    .load-icon { font-size: 2.4rem; animation: run-in-place 0.55s ease-in-out infinite; display: inline-block; }
-    @keyframes run-in-place {
-      0%   { transform: translateY(0px)  rotate(-3deg) scaleY(1); }
-      20%  { transform: translateY(-7px) rotate(2deg)  scaleY(1.04); }
-      40%  { transform: translateY(-3px) rotate(-2deg) scaleY(0.97); }
-      60%  { transform: translateY(-9px) rotate(3deg)  scaleY(1.05); }
-      80%  { transform: translateY(-2px) rotate(-1deg) scaleY(0.98); }
-      100% { transform: translateY(0px)  rotate(-3deg) scaleY(1); }
+    .load-icon { font-size: 2.4rem; display: inline-block; transform: scaleX(-1); animation: run-lean 0.6s ease-in-out infinite alternate; }
+    @keyframes run-lean {
+      from { transform: scaleX(-1) rotate(-4deg); }
+      to   { transform: scaleX(-1) rotate(3deg); }
     }
     .load-title { font-size: 1.4rem; color: var(--gold-light); letter-spacing: 0.06em; }
     .load-sub { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; }
@@ -170,13 +167,13 @@
     #tracker {
       position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 20;
       background: var(--dark-glass); backdrop-filter: blur(10px);
-      border: 1px solid rgba(229,57,53,0.3); border-radius: 20px;
+      border: 1px solid rgba(76,175,80,0.3); border-radius: 20px;
       padding: 7px 13px; display: flex; align-items: center; gap: 8px;
       font-size: 0.68rem; color: var(--text-muted);
     }
-    .tracker-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+    .tracker-dot { width: 8px; height: 8px; border-radius: 50%; background: #4CAF50; flex-shrink: 0; }
     .tracker-dot.live { animation: blink 1.4s ease-in-out infinite; }
-    @keyframes blink { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(229,57,53,0.6)} 50%{opacity:0.6;box-shadow:0 0 0 5px rgba(229,57,53,0)} }
+    @keyframes blink { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(76,175,80,0.6)} 50%{opacity:0.6;box-shadow:0 0 0 5px rgba(76,175,80,0)} }
 
     /* ── POPUP ───────────────────────────────────────────── */
     .mapboxgl-popup-content {
@@ -196,24 +193,6 @@
     .pu-addr { font-size: 0.67rem; color: var(--text-muted); line-height: 1.5; }
     .pu-note { font-size: 0.67rem; color: var(--text-muted); margin-top: 8px; line-height: 1.5; border-top: 1px solid var(--border); padding-top: 8px; }
 
-    /* ── CUSTOM MARKER ELEMENTS ──────────────────────────── */
-    .mk-wrap { cursor: pointer; }
-    .mk-dot {
-      border-radius: 50%; border: 2px solid rgba(255,255,255,0.85);
-      transition: transform 0.2s; will-change: transform;
-    }
-    .mk-wrap:hover .mk-dot { transform: scale(1.5); }
-    .mk-ring {
-      position: absolute; top: 50%; left: 50%;
-      border-radius: 50%; border: 1px solid;
-      animation: mkring 2.4s ease-out infinite;
-      pointer-events: none;
-    }
-    @keyframes mkring {
-      0% { transform: translate(-50%,-50%) scale(1); opacity: 0.7; }
-      100% { transform: translate(-50%,-50%) scale(2.8); opacity: 0; }
-    }
-
     /* runner tracker marker */
     .runner-marker {
       position: relative; width: 26px; height: 26px;
@@ -221,14 +200,14 @@
     .runner-core {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
       width: 13px; height: 13px; border-radius: 50%;
-      background: #FF6B35; border: 2px solid white;
-      box-shadow: 0 0 12px #FF6B35, 0 0 4px #FF6B35;
+      background: #4CAF50; border: 2px solid white;
+      box-shadow: 0 0 12px #4CAF50, 0 0 4px #4CAF50;
       z-index: 2;
     }
     .runner-pulse {
       position: absolute; top: 50%; left: 50%;
       width: 26px; height: 26px; border-radius: 50%;
-      background: rgba(255,107,53,0.35);
+      background: rgba(76,175,80,0.35);
       animation: runpulse 1.6s ease-out infinite;
       pointer-events: none;
     }
@@ -243,29 +222,48 @@
     .mapboxgl-ctrl-attrib { background: rgba(8,8,22,0.7) !important; }
     .mapboxgl-ctrl-attrib a { color: var(--text-muted) !important; }
 
+    /* ── HOME CONTROL ────────────────────────────────────── */
+    .mapboxgl-ctrl-group button svg { color: var(--gold); display: block; margin: auto; }
+    .mapboxgl-ctrl-group button:hover svg { color: var(--gold-light); }
+
+    /* ── GEOLOCATE ───────────────────────────────────────── */
+    .mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
+      filter: invert(75%) sepia(60%) saturate(400%) hue-rotate(5deg) brightness(1.1);
+    }
+    .mapboxgl-ctrl-geolocate-active .mapboxgl-ctrl-icon,
+    .mapboxgl-ctrl-geolocate-active-error .mapboxgl-ctrl-icon {
+      filter: invert(75%) sepia(90%) saturate(600%) hue-rotate(5deg) brightness(1.3);
+    }
+    .mapboxgl-user-location-dot,
+    .mapboxgl-user-location-dot::before {
+      background-color: var(--gold-light) !important;
+    }
+    .mapboxgl-user-location-accuracy-circle { background-color: rgba(212,160,23,0.15) !important; }
+
     /* ── MOBILE ──────────────────────────────────────────── */
     @media (max-width: 600px) {
       #sidebar {
         width: 100%; height: 42%; top: auto; bottom: 0;
         left: 0; right: 0; border-right: none;
         border-top: 1px solid var(--border);
-        transform: translateY(0);
+        transform: translateY(100%);
       }
       #sidebar.hidden { transform: translateY(100%); }
+      #sidebar.open   { transform: translateY(0); }
 
       #sb-toggle {
-        left: 50%; top: auto; bottom: 42%; transform: translateX(-50%);
+        left: 50%; top: auto; bottom: 0; transform: translateX(-50%);
         width: 54px; height: 20px; border-radius: 6px 6px 0 0;
         border-left: 1px solid var(--border); border-bottom: none;
         writing-mode: horizontal-tb;
       }
-      #sb-toggle.sb-hidden { bottom: 0; left: 50%; transform: translateX(-50%); }
+      #sb-toggle.sb-open { bottom: 42%; }
 
       #topbar { left: 0; display: none; }
-      #legend { left: 16px; bottom: auto; top: 56px; }
+      #legend { left: 16px; bottom: auto; top: 16px; }
       #legend.sb-hidden { left: 16px; }
-      #controls { bottom: auto; top: 56px; right: 16px; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
-      #tracker { top: auto; bottom: 46%; left: 50%; transform: translateX(-50%); }
+      #controls { bottom: auto; top: 16px; right: 16px; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+      #tracker { top: auto; bottom: 32px; left: 50%; transform: translateX(-50%); }
     }
   </style>
 </head>
@@ -314,22 +312,29 @@
   </div>
 </div>
 
-<!-- Live tracker badge -->
-<div id="tracker" style="display: none;">
+<!-- Live tracker badge (hidden until tracking is active) -->
+<div id="tracker" style="display:none;">
   <div class="tracker-dot" id="tracker-dot"></div>
-  <span id="tracker-label">Live tracking begins June 30</span>
+  <span id="tracker-label">Harvey is running!</span>
+</div>
+
+<!-- TEMP: test button — remove before go-live -->
+<div id="test-controls" style="
+  position:absolute; bottom:80px; left:50%; transform:translateX(-50%);
+  z-index:30; display:none; gap:8px;">
+  <button class="ctl-btn" id="btn-test" onclick="startTestTracker()">▶ Test Tracker</button>
+  <button class="ctl-btn" onclick="stopTestTracker()" style="display:none" id="btn-stop-test">■ Stop</button>
 </div>
 
 <!-- Map controls -->
-<div id="controls">
+<!-- <div id="controls">
   <button class="ctl-btn" id="btn-3d" onclick="toggle3D()">3D</button>
   <button class="ctl-btn" id="btn-fly" onclick="flyRoute()">Fly Route</button>
   <button class="ctl-btn" onclick="resetView()">Overview</button>
-</div>
+</div> -->
 
 <!-- Legend -->
 <div id="legend">
-  <div class="legend-title">Daily Segments</div>
   <!-- filled by JS -->
 </div>
 
@@ -339,7 +344,7 @@
 // Paste your Mapbox public token here, or add ?token=pk.xxx to URL
 // ════════════════════════════════════════════════════════════════
 const TOKEN_FROM_URL = new URLSearchParams(location.search).get('token');
-mapboxgl.accessToken = TOKEN_FROM_URL || 'pk.eyJ1IjoibWF0dGhld2dhcnJvZCIsImEiOiJjbXF2OG1tODMxMnJ0MnNwaTN4Nm1kN283In0.zEpspfE1lLPtbTohflzUAQ';
+mapboxgl.accessToken = TOKEN_FROM_URL || 'pk.eyJ1IjoibWF0dGhld2dhcnJvZCIsImEiOiJjbXF2NzlnZnExMm5oMnNvcTR2MzB4aDNnIn0.2GU4lgODdre8ruaXJCSycw';//pk.eyJ1IjoibWF0dGhld2dhcnJvZCIsImEiOiJjbXF2OG1tODMxMnJ0MnNwaTN4Nm1kN283In0.zEpspfE1lLPtbTohflzUAQ';
 
 // ════════════════════════════════════════════════════════════════
 // STOPS DATA
@@ -351,10 +356,10 @@ const STOPS = [
     id: 'start',
     name: 'Liberty State Park',
     short: 'Liberty Park, NJ',
-    coords: [-74.0398, 40.6989],
+    coords: [-74.0537, 40.6993],
     day: 'Start',
     date: 'June 30, 2026',
-    address: 'Liberty State Park\nJersey City, NJ 07305',
+    address: '450 Freedom Way\nJersey City, NJ 07305',
     note: 'The run begins at the foot of the Statue of Liberty — an enduring symbol of freedom and refuge for all who seek it.',
     isStart: true,
     color: COLORS[0]
@@ -418,20 +423,6 @@ const STOPS = [
   }
 ];
 
-// Intermediate waypoints to guide the Directions API along correct road corridors
-// Each entry: [segmentIndex, [ [lng,lat], ... ]] — these sit BETWEEN start and end of each day
-const INTERMEDIATES = [
-  // Day 1: Liberty Park → Princeton via Elizabeth, Edison corridor
-  [0, [[-74.2119, 40.6640], [-74.2848, 40.5576], [-74.4518, 40.4862]]],
-  // Day 2: Princeton → Philadelphia via Trenton, crossing DE River
-  [1, [[-74.7429, 40.2171], [-74.8617, 40.0987], [-75.0600, 40.0200]]],
-  // Day 3: Philadelphia → Newark DE via Chester PA, Wilmington DE
-  [2, [[-75.3570, 39.8495], [-75.5398, 39.7447]]],
-  // Day 4: Newark DE → Baltimore via Elkton MD, Aberdeen MD
-  [3, [[-75.8330, 39.6065], [-76.1647, 39.5095], [-76.3500, 39.4200]]],
-  // Day 5: Baltimore → DC via Laurel MD, College Park MD
-  [4, [[-76.7500, 39.1500], [-76.9269, 38.9807]]]
-];
 
 // ════════════════════════════════════════════════════════════════
 // MAP INIT
@@ -449,46 +440,41 @@ const map = new mapboxgl.Map({
 map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-right');
 map.addControl(new mapboxgl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-right');
 
+class HomeControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+    const btn = document.createElement('button');
+    btn.title = 'Overview';
+    btn.innerHTML = `<svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 2L2 9h2v9h5v-5h2v5h5V9h2L10 2z"/>
+    </svg>`;
+    btn.addEventListener('click', resetView);
+    this._container.appendChild(btn);
+    return this._container;
+  }
+  onRemove() { this._container.parentNode.removeChild(this._container); }
+}
+map.addControl(new HomeControl(), 'top-right');
+
+const geolocate = new mapboxgl.GeolocateControl({
+  positionOptions: { enableHighAccuracy: true },
+  trackUserLocation: true,
+  showUserHeading: true
+});
+map.addControl(geolocate, 'top-right');
+
 let is3D = false;
 let runnerMarker = null;
-let sidebarOpen = true;
+const isMobile = () => window.innerWidth <= 600;
+let sidebarOpen = !isMobile();
 let flyingTimeout = null;
-
-// ════════════════════════════════════════════════════════════════
-// ROUTE FETCHING
-// ════════════════════════════════════════════════════════════════
-async function fetchSegment(fromStop, toStop, extras = []) {
-  const coords = [fromStop.coords, ...extras, toStop.coords]
-    .map(c => c.join(',')).join(';');
-  const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coords}` +
-    `?alternatives=false&geometries=geojson&overview=full&steps=false` +
-    `&access_token=${mapboxgl.accessToken}`;
-  try {
-    const r = await fetch(url);
-    const d = await r.json();
-    if (d.routes && d.routes[0]) return d.routes[0].geometry.coordinates;
-  } catch (e) { /* fall through */ }
-  // Fallback: interpolate via intermediate points
-  const pts = [fromStop.coords, ...extras, toStop.coords];
-  return interpolateLine(pts, 40);
-}
-
-function interpolateLine(pts, steps) {
-  const out = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
-    for (let s = 0; s <= steps; s++) {
-      const t = s / steps;
-      out.push([ax + (bx - ax) * t, ay + (by - ay) * t]);
-    }
-  }
-  return out;
-}
 
 // ════════════════════════════════════════════════════════════════
 // MAP READY
 // ════════════════════════════════════════════════════════════════
-map.on('load', async () => {
+map.on('load', () => {
 
   // ── Atmosphere + terrain ──────────────────────────────────────
   map.addSource('dem', {
@@ -523,15 +509,8 @@ map.on('load', async () => {
     }
   });
 
-  // ── Fetch all segments (parallel) ────────────────────────────
-  const intermediateMap = Object.fromEntries(INTERMEDIATES);
-  const segFetches = STOPS.slice(0, -1).map((stop, i) =>
-    fetchSegment(stop, STOPS[i + 1], intermediateMap[i] || [])
-  );
-  const segments = await Promise.all(segFetches);
-
-  // ── Add route layers ──────────────────────────────────────────
-  segments.forEach((coords, i) => {
+  // ── Add route layers (geometry from hardcoded route.js) ──────
+  ROUTE_COORDS.forEach((coords, i) => {
     const src = `route-src-${i}`;
     const color = COLORS[i];
 
@@ -591,7 +570,8 @@ map.on('load', async () => {
       'circle-opacity': 0.25,
       'circle-stroke-width': 1,
       'circle-stroke-color': ['get', 'color'],
-      'circle-stroke-opacity': 0.5
+      'circle-stroke-opacity': 0.5,
+      'circle-pitch-alignment': 'map'
     }
   });
 
@@ -718,24 +698,42 @@ function buildLegend() {
 // ════════════════════════════════════════════════════════════════
 function toggleSidebar() {
   sidebarOpen = !sidebarOpen;
-  const sb = document.getElementById('sidebar');
+  const sb  = document.getElementById('sidebar');
   const tog = document.getElementById('sb-toggle');
-  const tb = document.getElementById('topbar');
+  const tb  = document.getElementById('topbar');
   const leg = document.getElementById('legend');
-  if (!sidebarOpen) {
+  const mobile = isMobile();
+  if (sidebarOpen) {
+    if (mobile) { sb.classList.add('open'); sb.classList.remove('hidden'); tog.classList.add('sb-open'); }
+    else         { sb.classList.remove('hidden'); }
+    tog.classList.remove('sb-hidden');
+    tb.classList.remove('sb-hidden');
+    leg.classList.remove('sb-hidden');
+    tog.textContent = mobile ? '▼' : '◀';
+  } else {
+    if (mobile) { sb.classList.remove('open'); sb.classList.add('hidden'); tog.classList.remove('sb-open'); }
+    else         { sb.classList.add('hidden'); }
+    tog.classList.add('sb-hidden');
+    tb.classList.add('sb-hidden');
+    leg.classList.add('sb-hidden');
+    tog.textContent = mobile ? '▲' : '▶';
+  }
+}
+
+// Apply correct initial state
+(function initSidebar() {
+  if (isMobile()) {
+    const sb  = document.getElementById('sidebar');
+    const tog = document.getElementById('sb-toggle');
+    const tb  = document.getElementById('topbar');
+    const leg = document.getElementById('legend');
     sb.classList.add('hidden');
     tog.classList.add('sb-hidden');
     tb.classList.add('sb-hidden');
     leg.classList.add('sb-hidden');
-    tog.textContent = '▶';
-  } else {
-    sb.classList.remove('hidden');
-    tog.classList.remove('sb-hidden');
-    tb.classList.remove('sb-hidden');
-    leg.classList.remove('sb-hidden');
-    tog.textContent = '◀';
+    tog.textContent = '▲';
   }
-}
+})();
 
 function toggle3D() {
   is3D = !is3D;
@@ -780,20 +778,70 @@ window.updateRunner = function(lat, lng, label) {
   if (!runnerMarker) return;
   runnerMarker.setLngLat([lng, lat]);
   document.getElementById('runner-el').style.display = 'block';
+  const tracker = document.getElementById('tracker');
+  tracker.style.display = 'flex';
   document.getElementById('tracker-dot').classList.add('live');
-  document.getElementById('tracker-label').textContent = label || 'Harvey is running!';
-  map.panTo([lng, lat], { duration: 1000 });
+  if (label) document.getElementById('tracker-label').textContent = label;
+  map.panTo([lng, lat], { duration: 800 });
 };
+
+// ════════════════════════════════════════════════════════════════
+// TEST TRACKER — TEMP, remove before go-live
+// Replays all route coords to simulate Harvey moving in real time
+// ════════════════════════════════════════════════════════════════
+let testInterval = null;
+
+function startTestTracker() {
+  if (testInterval) return;
+  // Flatten all 5 day segments into one coordinate array
+  const allCoords = ROUTE_COORDS.flat();
+  const total = allCoords.length;
+  let idx = 0;
+  const STEP = 40;   // points to advance per tick
+  const TICK = 80;   // ms per tick → ~26s to traverse full route
+
+  document.getElementById('btn-test').style.display = 'none';
+  document.getElementById('btn-stop-test').style.display = 'inline-block';
+
+  // Zoom into start point
+  map.flyTo({ center: allCoords[0], zoom: 13, pitch: 50, duration: 1500 });
+
+  testInterval = setInterval(() => {
+    if (idx >= total) { stopTestTracker(); return; }
+    const [lng, lat] = allCoords[idx];
+    // Compute which day we're in for the label
+    let cumulative = 0;
+    let day = 1;
+    for (let d = 0; d < ROUTE_COORDS.length; d++) {
+      cumulative += ROUTE_COORDS[d].length;
+      if (idx < cumulative) { day = d + 1; break; }
+    }
+    const pct = Math.round((idx / total) * 100);
+    window.updateRunner(lat, lng, `Day ${day} · ${pct}% complete`);
+    idx += STEP;
+  }, TICK);
+}
+
+function stopTestTracker() {
+  if (testInterval) { clearInterval(testInterval); testInterval = null; }
+  document.getElementById('btn-test').style.display = 'inline-block';
+  document.getElementById('btn-stop-test').style.display = 'none';
+  // Hide runner and badge
+  const el = document.getElementById('runner-el');
+  if (el) el.style.display = 'none';
+  document.getElementById('tracker').style.display = 'none';
+  document.getElementById('tracker-dot').classList.remove('live');
+}
 
 // ════════════════════════════════════════════════════════════════
 // KEYBOARD SHORTCUTS
 // ════════════════════════════════════════════════════════════════
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') resetView();
-  if (e.key === '3') toggle3D();
-  if (e.key === 'f') flyRoute();
-  if (e.key === 's') toggleSidebar();
-});
+// document.addEventListener('keydown', e => {
+//   if (e.key === 'Escape') resetView();
+//   if (e.key === '3') toggle3D();
+//   if (e.key === 'f') flyRoute();
+//   if (e.key === 's') toggleSidebar();
+// });
 </script>
 </body>
 </html>
